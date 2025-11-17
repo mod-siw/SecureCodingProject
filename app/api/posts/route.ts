@@ -22,7 +22,10 @@ export async function GET() {
     const postsWithDetails = await Promise.all(
       postsResult.rows.map(async (post) => {
         const commentsResult = await sql`
-          SELECT comments.*, users.username
+          SELECT 
+            comments.*, 
+            users.username, 
+            users.profile_pic 
           FROM comments
           JOIN users ON comments.user_id = users.id
           WHERE comments.post_id = ${post.id}

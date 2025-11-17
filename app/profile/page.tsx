@@ -22,6 +22,10 @@ export default function ProfilePage() {
     }
   }, [router]);
 
+  // [수정] 현재 이 방식은 모든 게시물을 불러온 후 '필터링'합니다.
+  // 게시물이 많아지면 매우 비효율적이 됩니다.
+  // TODO: 추후 /api/users/[userId]/posts 같은 API를 만들어
+  //       해당 사용자의 게시물만 DB에서 가져오도록 최적화하는 것이 좋습니다.
   const fetchUserPosts = async (userId: number): Promise<void> => {
     try {
       const res = await fetch("/api/posts");
@@ -58,10 +62,21 @@ export default function ProfilePage() {
         <div className="bg-white border-0 sm:border border-gray-300 sm:rounded-lg">
           <div className="p-4 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-12">
             <div className="w-20 h-20 sm:w-32 sm:h-32 bg-gradient-to-br from-yellow-400 via-red-500 to-pink-500 rounded-full flex items-center justify-center flex-shrink-0">
-              <div className="w-19 h-19 sm:w-30 sm:h-30 bg-white rounded-full flex items-center justify-center text-3xl sm:text-5xl font-semibold">
-                {currentUser.username[0].toUpperCase()}
+              <div className="w-[76px] h-[76px] sm:w-[120px] sm:h-[120px] bg-white rounded-full flex items-center justify-center text-3xl sm:text-5xl font-semibold overflow-hidden">
+                {currentUser.profile_pic ? (
+                  // 프로필 사진이 있으면 <img> 렌더링
+                  <img
+                    src={currentUser.profile_pic}
+                    alt={currentUser.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  // 없으면 첫 글자 렌더링
+                  currentUser.username[0].toUpperCase()
+                )}
               </div>
             </div>
+
             <div className="flex-1 text-center sm:text-left w-full">
               <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 mb-4">
                 <h2 className="text-xl sm:text-2xl font-light">
@@ -93,6 +108,7 @@ export default function ProfilePage() {
               </button>
             </div>
 
+            {/* 게시물 그리드 */}
             <div className="grid grid-cols-3 gap-0.5 sm:gap-1 p-0 sm:p-1">
               {posts.length === 0 ? (
                 <div className="col-span-3 py-20 text-center">

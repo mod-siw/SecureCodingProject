@@ -26,6 +26,7 @@ export interface Comment {
   username: string;
   text: string;
   created_at: string;
+  profile_pic: string | null;
 }
 
 export interface Like {

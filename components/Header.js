@@ -27,7 +27,7 @@ export default function Header({ currentUser, onLogout }) {
         </div>
 
         <div className="flex items-center gap-3 sm:gap-5">
-          <button onClick={() => router.push("/")}>
+          <button onClick={() => router.push("/")} className="hidden sm:block">
             <Home size={22} className="sm:w-6 sm:h-6" />
           </button>
           <button onClick={() => router.push("/create")}>

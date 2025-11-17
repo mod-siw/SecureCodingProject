@@ -67,9 +67,20 @@ export default function PostCard({
     <div className="bg-white border-0 sm:border border-gray-300 sm:rounded-lg">
       <div className="p-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          {/* [ 프로필 사진 부분] */}
           <div className="w-8 h-8 bg-gradient-to-br from-yellow-400 via-red-500 to-pink-500 rounded-full flex items-center justify-center">
-            <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-sm font-semibold">
-              {post.username[0].toUpperCase()}
+            <div className="w-7 h-7 bg-white rounded-full flex items-center justify-center text-sm font-semibold overflow-hidden">
+              {post.profile_pic ? (
+                // 프로필 사진이 있으면 <img> 렌더링
+                <img
+                  src={post.profile_pic}
+                  alt={post.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                // 없으면 기존처럼 첫 글자 렌더링
+                post.username[0].toUpperCase()
+              )}
             </div>
           </div>
           <p className="font-semibold text-sm">{post.username}</p>
