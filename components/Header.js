@@ -36,7 +36,7 @@ export default function Header({ currentUser, onLogout }) {
           <button onClick={() => router.push("/profile")}>
             <User size={22} className="sm:w-6 sm:h-6" />
           </button>
-          <button onClick={onLogout} className="hidden sm:block">
+          <button onClick={onLogout}>
             <LogOut size={22} className="sm:w-6 sm:h-6" />
           </button>
         </div>

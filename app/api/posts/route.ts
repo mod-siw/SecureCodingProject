@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { writeFile } from "fs/promises";
-import path from "path";
-import db from "@/lib/db";
-import { Post, Comment, Like, PostWithDetails } from "@/types/database";
+import { put } from "@vercel/blob";
+import sql from "@/lib/db";
 
+// GET - 모든 게시물 조회 (동일)
 export async function GET() {
-  return new Promise<NextResponse>((resolve) => {
-    const query = `
+  try {
+    const postsResult = await sql`
       SELECT 
         posts.*,
         users.username,
@@ -16,66 +15,44 @@ export async function GET() {
       FROM posts
       LEFT JOIN users ON posts.user_id = users.id
       LEFT JOIN likes ON posts.id = likes.post_id
-      GROUP BY posts.id
+      GROUP BY posts.id, users.id, users.username, users.name, users.profile_pic
       ORDER BY posts.created_at DESC
     `;
 
-    db.all(query, [], async (err: Error | null, posts: Post[]) => {
-      if (err) {
-        console.error("게시물 조회 에러:", err);
-        resolve(NextResponse.json({ error: err.message }, { status: 500 }));
-        return;
-      }
+    const postsWithDetails = await Promise.all(
+      postsResult.rows.map(async (post) => {
+        const commentsResult = await sql`
+          SELECT comments.*, users.username
+          FROM comments
+          JOIN users ON comments.user_id = users.id
+          WHERE comments.post_id = ${post.id}
+          ORDER BY comments.created_at ASC
+        `;
 
-      console.log(`게시물 ${posts.length}개 조회됨`);
+        const likesResult = await sql`
+          SELECT user_id
+          FROM likes
+          WHERE post_id = ${post.id}
+        `;
 
-      const postsWithDetails = await Promise.all(
-        posts.map((post) => {
-          return new Promise<PostWithDetails>((res) => {
-            db.all(
-              `SELECT comments.*, users.username
-               FROM comments
-               JOIN users ON comments.user_id = users.id
-               WHERE comments.post_id = ?
-               ORDER BY comments.created_at ASC`,
-              [post.id],
-              (err: Error | null, comments: Comment[]) => {
-                if (err) {
-                  console.error(`게시물 ${post.id} 댓글 조회 에러:`, err);
-                  res({ ...post, comments: [], likedBy: [], likes: 0 });
-                  return;
-                }
+        return {
+          ...post,
+          comments: commentsResult.rows,
+          likedBy: likesResult.rows.map((l) => l.user_id),
+          likes: parseInt(String(post.like_count)) || 0,
+        };
+      })
+    );
 
-                console.log(`게시물 ${post.id}: 댓글 ${comments.length}개`);
-
-                db.all(
-                  "SELECT user_id FROM likes WHERE post_id = ?",
-                  [post.id],
-                  (err: Error | null, likes: Pick<Like, "user_id">[]) => {
-                    if (err) {
-                      console.error(`게시물 ${post.id} 좋아요 조회 에러:`, err);
-                    }
-
-                    res({
-                      ...post,
-                      comments: comments || [],
-                      likedBy: likes ? likes.map((l) => l.user_id) : [],
-                      likes: parseInt(String(post.like_count)) || 0,
-                    });
-                  }
-                );
-              }
-            );
-          });
-        })
-      );
-
-      console.log("게시물 상세 정보 로딩 완료");
-      resolve(NextResponse.json({ posts: postsWithDetails }));
-    });
-  });
+    return NextResponse.json({ posts: postsWithDetails });
+  } catch (error) {
+    console.error("게시물 조회 에러:", error);
+    const errorMessage = error instanceof Error ? error.message : "서버 오류";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
+  }
 }
 
+// POST - 게시물 생성 (Vercel Blob 사용)
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
@@ -90,38 +67,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const bytes = await image.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const filename = `${Date.now()}-${image.name}`;
-    const filepath = path.join(process.cwd(), "public", "uploads", filename);
+    // Vercel Blob에 이미지 업로드
+    const blob = await put(`posts/${Date.now()}-${image.name}`, image, {
+      access: "public",
+      addRandomSuffix: true,
+    });
 
-    await writeFile(filepath, buffer);
+    console.log("✅ 이미지 업로드 완료:", blob.url);
 
-    return new Promise<NextResponse>((resolve) => {
-      db.run(
-        "INSERT INTO posts (user_id, image_path, caption) VALUES (?, ?, ?)",
-        [userId, `/uploads/${filename}`, caption || null],
-        function (this: { lastID: number }, err: Error | null) {
-          if (err) {
-            resolve(
-              NextResponse.json(
-                { error: "게시물 업로드 실패" },
-                { status: 500 }
-              )
-            );
-          } else {
-            resolve(
-              NextResponse.json({
-                message: "게시물 업로드 성공",
-                postId: this.lastID,
-                imagePath: `/uploads/${filename}`,
-              })
-            );
-          }
-        }
-      );
+    // PostgreSQL에 게시물 정보 저장
+    const result = await sql`
+      INSERT INTO posts (user_id, image_path, caption)
+      VALUES (${userId as string}, ${blob.url}, ${caption as string | null})
+      RETURNING id
+    `;
+
+    return NextResponse.json({
+      message: "게시물 업로드 성공",
+      postId: result.rows[0].id,
+      imagePath: blob.url,
     });
   } catch (error) {
-    return NextResponse.json({ error: "서버 오류" }, { status: 500 });
+    console.error("게시물 업로드 에러:", error);
+    const errorMessage = error instanceof Error ? error.message : "서버 오류";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -7,7 +7,18 @@ import {
   Bookmark,
   MoreHorizontal,
   Smile,
+  Trash2,
 } from "lucide-react";
+import { User, PostWithDetails } from "@/types/database";
+
+interface PostCardProps {
+  post: PostWithDetails;
+  currentUser: User;
+  onLike: (postId: number) => Promise<void>;
+  onComment: (postId: number, text: string) => Promise<void>;
+  onOpenModal: (post: PostWithDetails) => void;
+  onDelete?: (postId: number) => Promise<void>;
+}
 
 export default function PostCard({
   post,
@@ -15,18 +26,31 @@ export default function PostCard({
   onLike,
   onComment,
   onOpenModal,
-}) {
+  onDelete,
+}: PostCardProps) {
   const [commentText, setCommentText] = useState("");
+  const [showMenu, setShowMenu] = useState(false);
 
   const handleComment = () => {
     if (commentText.trim()) {
-      onComment(post.id, commentText, currentUser.id);
+      onComment(post.id, commentText);
       setCommentText("");
     }
   };
 
-  const getTimeAgo = (date) => {
-    const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+  const handleDelete = async () => {
+    if (confirm("정말 이 게시물을 삭제하시겠습니까?")) {
+      if (onDelete) {
+        await onDelete(post.id);
+      }
+    }
+    setShowMenu(false);
+  };
+
+  const getTimeAgo = (date: string) => {
+    const seconds = Math.floor(
+      (new Date().getTime() - new Date(date).getTime()) / 1000
+    );
     if (seconds < 60) return "방금 전";
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}분 전`;
@@ -36,6 +60,8 @@ export default function PostCard({
     if (days < 7) return `${days}일 전`;
     return new Date(date).toLocaleDateString("ko-KR");
   };
+
+  const isMyPost = post.user_id === currentUser.id;
 
   return (
     <div className="bg-white border-0 sm:border border-gray-300 sm:rounded-lg">
@@ -48,9 +74,29 @@ export default function PostCard({
           </div>
           <p className="font-semibold text-sm">{post.username}</p>
         </div>
-        <button className="text-gray-600">
-          <MoreHorizontal size={20} />
-        </button>
+
+        {isMyPost && (
+          <div className="relative">
+            <button
+              onClick={() => setShowMenu(!showMenu)}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <MoreHorizontal size={20} />
+            </button>
+
+            {showMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-300 rounded-lg shadow-lg z-10">
+                <button
+                  onClick={handleDelete}
+                  className="w-full px-4 py-3 text-left text-red-600 hover:bg-gray-50 flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  삭제
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <img src={post.image_path} alt="Post" className="w-full" />

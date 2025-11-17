@@ -8,6 +8,7 @@ interface User {
   id: number;
   username: string;
   name: string;
+  profilePic?: string | null; // <-- Header를 위해 이 필드를 추가하는 것이 좋습니다.
 }
 
 export default function CreatePage() {

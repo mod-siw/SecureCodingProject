@@ -30,7 +30,6 @@ export default function HomePage() {
     try {
       const res = await fetch("/api/posts");
       const data = await res.json();
-      console.log("게시물 로딩:", data.posts);
       setPosts(data.posts || []);
     } catch (error) {
       console.error("게시물 로딩 실패:", error);
@@ -46,16 +45,12 @@ export default function HomePage() {
     }
 
     try {
-      console.log("좋아요 요청:", { postId, userId: currentUser.id });
-
       const res = await fetch(`/api/posts/${postId}/like`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: currentUser.id }),
         credentials: "include",
       });
-
-      console.log("좋아요 응답 상태:", res.status);
 
       if (!res.ok) {
         const errorData = await res.json();
@@ -99,7 +94,7 @@ export default function HomePage() {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUser.id, text }),
+        body: JSON.stringify({ userId: currentUser.id, postId: postId, text }),
         credentials: "include",
       });
 
@@ -126,6 +121,31 @@ export default function HomePage() {
     } catch (error) {
       console.error("댓글 작성 에러:", error);
       alert("댓글 작성 중 오류가 발생했습니다.");
+    }
+  };
+  const handleDelete = async (postId: number): Promise<void> => {
+    if (!currentUser) return;
+
+    try {
+      const res = await fetch(`/api/posts/${postId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: currentUser.id }),
+      });
+
+      if (res.ok) {
+        alert("게시물이 삭제되었습니다.");
+        await fetchPosts();
+        if (selectedPost?.id === postId) {
+          setSelectedPost(null);
+        }
+      } else {
+        const data = await res.json();
+        alert(data.error);
+      }
+    } catch (error) {
+      console.error("게시물 삭제 에러:", error);
+      alert("게시물 삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -165,6 +185,7 @@ export default function HomePage() {
                 onLike={handleLike}
                 onComment={handleComment}
                 onOpenModal={setSelectedPost}
+                onDelete={handleDelete}
               />
             ))
           )}
